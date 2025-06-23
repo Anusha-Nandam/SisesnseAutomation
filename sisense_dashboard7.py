@@ -2,26 +2,22 @@ import streamlit as st
 import requests
 import json
 import re
+import pandas as pd
 
 st.set_page_config(layout="wide")
 st.title("📊 Sisense Dashboard Comparator")
 
-# -------------------------------
-# Input Section
-# -------------------------------
+# ------------------------------- Input Section -------------------------------
 base_url = st.text_input("Sisense Base URL", value="https://qa-pa01.profitsage.net")
 api_token = st.text_area("API Token", height=100)
 dashboard_id_1 = st.text_input("Dashboard ID 1")
 dashboard_id_2 = st.text_input("Dashboard ID 2")
 
-# Optional upload fallback
 st.sidebar.header("📁 Upload Dashboard Files (Optional)")
 file_1 = st.sidebar.file_uploader("Upload Dashboard 1 (.dash or .json)", type=["json", "dash"])
 file_2 = st.sidebar.file_uploader("Upload Dashboard 2 (.dash or .json)", type=["json", "dash"])
 
-# -------------------------------
-# Helper Functions
-# -------------------------------
+# ------------------------------- Helper Functions -------------------------------
 def fetch_dashboard(base_url, dashboard_id, headers):
     try:
         url = f"{base_url}/api/v1/dashboards/{dashboard_id}"
@@ -42,16 +38,6 @@ def get_dashboard_widgets(base_url, dashboard_id, headers):
         pass
     return None
 
-def get_dashboard_export(base_url, dashboard_id, headers):
-    try:
-        url = f"{base_url}/api/v1/dashboards/{dashboard_id}/export"
-        res = requests.get(url, headers=headers)
-        if res.ok:
-            return res.json()
-    except:
-        pass
-    return None
-
 def get_dashboard_data(dashboard_id, file, base_url, headers):
     if dashboard_id:
         dash = fetch_dashboard(base_url, dashboard_id, headers)
@@ -59,9 +45,6 @@ def get_dashboard_data(dashboard_id, file, base_url, headers):
         if dash:
             dash["widgets"] = widgets or []
             return dash
-        export = get_dashboard_export(base_url, dashboard_id, headers)
-        if export:
-            return export
     if file:
         return json.load(file)
     return None
@@ -72,16 +55,20 @@ def strip_html_tags(html):
 def extract_dashboard_info(dash):
     filters = [f.get("jaql", {}).get("title", "") for f in dash.get("filters", [])]
     widgets = dash.get("widgets", [])
-    if isinstance(widgets, dict):  # for export JSON structure
+    if isinstance(widgets, dict):
         widgets = widgets.get("widgets", [])
 
-    titles = [w.get("title", "") for w in widgets]
-    types = [w.get("type", "") for w in widgets]
-
+    widget_info = []
     rich_text_html = []
     rich_text_clean = []
+    indicators = []
 
     for w in widgets:
+        widget_info.append({
+            "title": w.get("title", ""),
+            "type": w.get("type", "")
+        })
+
         style = w.get("style", {})
         content = style.get("content", {})
         html = content.get("html", "")
@@ -89,15 +76,36 @@ def extract_dashboard_info(dash):
             rich_text_html.append(html)
             rich_text_clean.append(strip_html_tags(html))
 
+        if w.get("type", "").lower() == "indicator":
+            for panel in w.get("metadata", {}).get("panels", []):
+                for item in panel.get("items", []):
+                    jaql = item.get("jaql", {})
+                    title = jaql.get("title", "")
+                    context = jaql.get("context", {})
+                    for ctx in context.values():
+                        indicators.append({
+                            "panel": panel.get("name", ""),
+                            "title": title,
+                            "source": ctx.get("title", "")
+                        })
+
     return {
         "title": dash.get("title", "Untitled"),
         "filters": filters,
-        "widget_titles": titles,
-        "widget_types": types,
+        "widgets": widget_info,
         "rich_text_html": rich_text_html,
-        "rich_text_clean": rich_text_clean
+        "rich_text_clean": rich_text_clean,
+        "indicators": indicators
     }
 
+def create_comparison_table(list1, list2, label):
+    all_items = sorted(set(list1 + list2))
+    df = pd.DataFrame({
+        label: all_items,
+        "Dashboard 1": ["✅" if item in list1 else "" for item in all_items],
+        "Dashboard 2": ["✅" if item in list2 else "" for item in all_items]
+    })
+    return df
 
 def compare_lists(list1, list2):
     return {
@@ -106,9 +114,8 @@ def compare_lists(list1, list2):
         "common": sorted(set(list1) & set(list2))
     }
 
-# -------------------------------
-# Comparison Logic
-# -------------------------------
+
+# ------------------------------- Main Logic -------------------------------
 if st.button("🔍 Compare Dashboards"):
     if not (dashboard_id_1 or file_1) or not (dashboard_id_2 or file_2):
         st.warning("Please provide dashboard IDs or upload files for both dashboards.")
@@ -122,51 +129,74 @@ if st.button("🔍 Compare Dashboards"):
             info1 = extract_dashboard_info(dash1)
             info2 = extract_dashboard_info(dash2)
 
-            st.subheader("📋 Dashboard Titles")
-            st.write(f"**Dashboard 1:** {info1['title']}")
-            st.write(f"**Dashboard 2:** {info2['title']}")
+            st.markdown(f"### 🏷️ Dashboard Titles")
+            st.write(f"**Dashboard 1:** `{info1['title']}`")
+            st.write(f"**Dashboard 2:** `{info2['title']}`")
 
-            st.subheader("📊 Filters Comparison")
-            st.json(compare_lists(info1["filters"], info2["filters"]))
+            st.markdown("---")
+            st.markdown("### 🧯 Filters Comparison")
+            st.dataframe(create_comparison_table(info1['filters'], info2['filters'], 'Filter'))
 
-            st.subheader("🧩 Widget Titles Comparison")
-            st.json(compare_lists(info1["widget_titles"], info2["widget_titles"]))
+            st.markdown("### 📚 Widget Titles Comparison")
+            st.dataframe(create_comparison_table(
+                [w['title'] for w in info1['widgets']],
+                [w['title'] for w in info2['widgets']],
+                'Widget Title'))
 
-            st.subheader("⚙️ Widget Types Comparison")
-            st.json(compare_lists(info1["widget_types"], info2["widget_types"]))
+            st.markdown("### ⚙️ Widget Types Comparison")
+            st.dataframe(create_comparison_table(
+                [w['type'] for w in info1['widgets']],
+                [w['type'] for w in info2['widgets']],
+                'Widget Type'))
+            
+            # ------------------ Rich Text Content Comparison ------------------
+            st.markdown("## 📝 Rich Text Content Comparison (<span style='color:#00C853'>RICHTEXT_MAIN.TITLE</span>)", unsafe_allow_html=True)
 
-            st.subheader("📝 Rich Text Content Comparison (`RICHTEXT_MAIN.TITLE`)")
-            st.json(compare_lists(info1["rich_text_clean"], info2["rich_text_clean"]))
+            rich_cmp_df = create_comparison_table(info1["rich_text_clean"], info2["rich_text_clean"], 'Rich Text')
+            st.dataframe(rich_cmp_df, use_container_width=True)
 
-            st.subheader("📖 Rich Text Content (Plain Text View)")
-            col1, col2 = st.columns(2)
+            # ------------------ Rich Text Plain View ------------------
+            # st.markdown("## 📄 Cleaned Rich Text (Plain View)")
+            # col1, col2 = st.columns(2)
 
-            with col1:
-                st.markdown("### Dashboard 1 Rich Text")
-                for i, text in enumerate(info1["rich_text_clean"], 1):
-                    with st.expander(f"Section {i}"):
-                        st.write(text)
+            # with col1:
+            #     st.markdown("### Dashboard 1")
+            #     for i, text in enumerate(info1["rich_text_clean"], 1):
+            #         st.markdown(f"**Section {i}:**")
+            #         st.code(text, language="text")
 
-            with col2:
-                st.markdown("### Dashboard 2 Rich Text")
-                for i, text in enumerate(info2["rich_text_clean"], 1):
-                    with st.expander(f"Section {i}"):
-                        st.write(text)
+            # with col2:
+            #     st.markdown("### Dashboard 2")
+            #     for i, text in enumerate(info2["rich_text_clean"], 1):
+            #         st.markdown(f"**Section {i}:**")
+            #         st.code(text, language="text")
 
-            st.subheader("🧾 Raw HTML (Advanced View)")
-            col1, col2 = st.columns(2)
+            # # ------------------ Raw HTML View (Optional) ------------------
+            # st.markdown("## 🧾 Raw HTML (Optional View)")
 
-            with col1:
-                st.markdown("### Dashboard 1 HTML")
-                for i, html in enumerate(info1["rich_text_html"], 1):
-                    with st.expander(f"HTML Block {i}"):
-                        st.code(html, language="html")
+            # col1, col2 = st.columns(2)
+            # with col1:
+            #     st.markdown("### Dashboard 1 HTML Blocks")
+            #     for i, html in enumerate(info1['rich_text_html'], 1):
+            #         with st.expander(f"HTML Block {i}"):
+            #             st.code(html, language="html")
 
-            with col2:
-                st.markdown("### Dashboard 2 HTML")
-                for i, html in enumerate(info2["rich_text_html"], 1):
-                    with st.expander(f"HTML Block {i}"):
-                        st.code(html, language="html")
+            # with col2:
+            #     st.markdown("### Dashboard 2 HTML Blocks")
+            #     for i, html in enumerate(info2['rich_text_html'], 1):
+            #         with st.expander(f"HTML Block {i}"):
+            #             st.code(html, language="html")
+
+
+            # ------------------ Indicator Comparison ------------------
+            st.markdown("## 📌 Indicator Comparison")
+
+            # Prepare comparison lists by converting dicts to string rows
+            indicators1 = [f"{i['panel']} | {i['title']} | {i['source']}" for i in info1["indicators"]]
+            indicators2 = [f"{i['panel']} | {i['title']} | {i['source']}" for i in info2["indicators"]]
+
+            indicator_cmp_df = create_comparison_table(indicators1, indicators2, "Indicator Detail")
+            st.dataframe(indicator_cmp_df, use_container_width=True)
 
         else:
             st.error("❌ Could not load one or both dashboards.")
