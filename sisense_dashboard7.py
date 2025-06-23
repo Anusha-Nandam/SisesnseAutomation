@@ -9,7 +9,7 @@ st.title("📊 Sisense Dashboard Comparator")
 
 # ------------------------------- Input Section -------------------------------
 base_url = st.text_input("Sisense Base URL", value="https://qa-pa01.profitsage.net")
-api_token = st.text_area("API Token", height=100)
+api_token = st.text_input("API Token", type="password")
 dashboard_id_1 = st.text_input("Dashboard ID 1")
 dashboard_id_2 = st.text_input("Dashboard ID 2")
 
