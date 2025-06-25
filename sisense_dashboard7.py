@@ -10,7 +10,7 @@ st.title("📊 Sisense Dashboard Comparator")
 # ------------------------------- Input Section -------------------------------
 same_env = st.checkbox("🔄 Same Environment for Both Dashboards", value=True)
 
-st.markdown("### 🌐 Environment 1 (Dashboard 1)")
+st.markdown("### 🌐 Environment 1")
 col1a, col1b = st.columns(2)
 with col1a:
     base_url_1 = st.text_input("Base URL 1", value="https://qa-pa01.profitsage.net", key="url1")
@@ -18,7 +18,7 @@ with col1b:
     api_token_1 = st.text_input("API Token 1", type="password", key="token1")
 
 if not same_env:
-    st.markdown("### 🌐 Environment 2 (Dashboard 2)")
+    st.markdown("### 🌐 Environment 2")
     col2a, col2b = st.columns(2)
     with col2a:
         base_url_2 = st.text_input("Base URL 2", value="https://actabl-pa01.profitsage.net/", key="url2")
