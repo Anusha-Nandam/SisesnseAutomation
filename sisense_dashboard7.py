@@ -21,7 +21,7 @@ if not same_env:
     st.markdown("### 🌐 Environment 2 (Dashboard 2)")
     col2a, col2b = st.columns(2)
     with col2a:
-        base_url_2 = st.text_input("Base URL 2", value="https://pa01.profitsage.net", key="url2")
+        base_url_2 = st.text_input("Base URL 2", value="https://actabl-pa01.profitsage.net/", key="url2")
     with col2b:
         api_token_2 = st.text_input("API Token 2", type="password", key="token2")
 else:
@@ -208,26 +208,32 @@ if st.button("🔍 Compare Dashboards"):
                 [w['type'] for w in info2['widgets']],
                 'Widget Type', title1, title2))
 
-            st.markdown("## 📝 Rich Text Comparison (<span style='color:#00C853'>RICHTEXT_MAIN.TITLE</span>)", unsafe_allow_html=True)
-            st.dataframe(create_comparison_table(
-                info1["rich_text_clean"],
-                info2["rich_text_clean"],
-                "Rich Text", title1, title2
-            ), use_container_width=True)
+            # Conditionally display Rich Text section
+            if info1["rich_text_clean"] or info2["rich_text_clean"]:
+                st.markdown("## 📝 Rich Text Comparison (<span style='color:#00C853'>RICHTEXT_MAIN.TITLE</span>)", unsafe_allow_html=True)
+                st.dataframe(create_comparison_table(
+                    info1["rich_text_clean"],
+                    info2["rich_text_clean"],
+                    "Rich Text", title1, title2
+                ), use_container_width=True)
 
-            st.markdown("## 📌 Indicator Comparison")
-            ind1 = [f"{i['panel']} | {i['title']} | {i['source']}" for i in info1["indicators"]]
-            ind2 = [f"{i['panel']} | {i['title']} | {i['source']}" for i in info2["indicators"]]
-            st.dataframe(create_comparison_table(
-                ind1, ind2, "Indicator Detail", title1, title2
-            ), use_container_width=True)
+            # Conditionally display Indicator section
+            if info1["indicators"] or info2["indicators"]:
+                st.markdown("## 📌 Indicator Comparison")
+                ind1 = [f"{i['panel']} | {i['title']} | {i['source']}" for i in info1["indicators"]]
+                ind2 = [f"{i['panel']} | {i['title']} | {i['source']}" for i in info2["indicators"]]
+                st.dataframe(create_comparison_table(
+                    ind1, ind2, "Indicator Detail", title1, title2
+                ), use_container_width=True)
 
-            st.markdown("## 🧠 Pivot Columns Comparison")
-            st.dataframe(create_comparison_table(
-                info1['pivot_combined'],
-                info2['pivot_combined'],
-                "Pivot Column", title1, title2
-            ), use_container_width=True)
+            # Conditionally display Pivot Column section
+            if info1["pivot_combined"] or info2["pivot_combined"]:
+                st.markdown("## 🧠 Pivot Columns Comparison")
+                st.dataframe(create_comparison_table(
+                    info1['pivot_combined'],
+                    info2['pivot_combined'],
+                    "Pivot Column", title1, title2
+                ), use_container_width=True)
 
         else:
             st.error("❌ Could not load one or both dashboards.")
