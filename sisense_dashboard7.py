@@ -10,7 +10,7 @@ st.title("📊 Sisense Dashboard Comparator")
 # ------------------------------- Input Section -------------------------------
 same_env = st.checkbox("🔄 Same Environment for Both Dashboards", value=True)
 
-st.markdown("### 🌐 Environment 1")
+st.markdown("### 🌐 Environment 1 (Dashboard 1)")
 col1a, col1b = st.columns(2)
 with col1a:
     base_url_1 = st.text_input("Base URL 1", value="https://qa-pa01.profitsage.net", key="url1")
@@ -18,7 +18,7 @@ with col1b:
     api_token_1 = st.text_input("API Token 1", type="password", key="token1")
 
 if not same_env:
-    st.markdown("### 🌐 Environment 2")
+    st.markdown("### 🌐 Environment 2 (Dashboard 2)")
     col2a, col2b = st.columns(2)
     with col2a:
         base_url_2 = st.text_input("Base URL 2", value="https://actabl-pa01.profitsage.net/", key="url2")
@@ -220,11 +220,31 @@ if st.button("🔍 Compare Dashboards"):
             # Conditionally display Indicator section
             if info1["indicators"] or info2["indicators"]:
                 st.markdown("## 📌 Indicator Comparison")
-                ind1 = [f"{i['panel']} | {i['title']} | {i['source']}" for i in info1["indicators"]]
-                ind2 = [f"{i['panel']} | {i['title']} | {i['source']}" for i in info2["indicators"]]
-                st.dataframe(create_comparison_table(
-                    ind1, ind2, "Indicator Detail", title1, title2
-                ), use_container_width=True)
+
+                def format_indicator(indicators):
+                    formatted = []
+                    for i in indicators:
+                        panel = i.get("panel", "")
+                        title = i.get("title", "")
+                        source = i.get("source", "")
+                        formatted.append((panel, title, source))
+                    return formatted
+
+                ind1_structured = format_indicator(info1["indicators"])
+                ind2_structured = format_indicator(info2["indicators"])
+
+                all_indicators = sorted(set(ind1_structured + ind2_structured))
+
+                df_ind = pd.DataFrame({
+                    "Panel": [i[0] for i in all_indicators],
+                    "Title": [i[1] for i in all_indicators],
+                    "Source": [i[2] for i in all_indicators],
+                    title1: ["✅" if i in ind1_structured else "" for i in all_indicators],
+                    title2: ["✅" if i in ind2_structured else "" for i in all_indicators]
+                })
+
+                st.dataframe(df_ind, use_container_width=True)
+
 
             # Conditionally display Pivot Column section
             if info1["pivot_combined"] or info2["pivot_combined"]:
