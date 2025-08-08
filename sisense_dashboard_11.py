@@ -24,18 +24,46 @@ def get_snowflake_session(user_email: str) -> Session:
     }
     return Session.builder.configs(conn_params).create()
 
+# def logout():
+#     if "session" in st.session_state:
+#         try:
+#             st.session_state.session.close()
+#         except:
+#             pass
+#         del st.session_state.session
+#     st.success("🔒 You have been logged out.")
+#     try:
+#         webbrowser.open_new("https://login.microsoftonline.com/common/oauth2/logout")
+#     except:
+#         st.info("ℹ️ Please manually log out from your Microsoft account.")
+
 def logout():
+    # Close the Snowflake session if it exists
     if "session" in st.session_state:
         try:
             st.session_state.session.close()
-        except:
-            pass
-        del st.session_state.session
-    st.success("🔒 You have been logged out.")
+            st.success("✅ Snowflake session closed successfully.")
+        except Exception as e:
+            st.warning(f"⚠️ Failed to close session: {e}")
+        finally:
+            del st.session_state.session
+
+    # Inform the user
+    st.success("🔒 You have been logged out of the application.")
+
+    # Try to open Microsoft logout URL
     try:
-        webbrowser.open_new("https://login.microsoftonline.com/common/oauth2/logout")
-    except:
-        st.info("ℹ️ Please manually log out from your Microsoft account.")
+        logout_url = "https://login.microsoftonline.com/common/oauth2/logout"
+        st.markdown(
+            f"""
+            <meta http-equiv="refresh" content="0;URL='{logout_url}'" />
+            """,
+            unsafe_allow_html=True,
+        )
+    except Exception as e:
+        st.warning("⚠️ Automatic Microsoft logout failed. Please log out manually.")
+        st.info("ℹ️ Open this link to log out: [Microsoft Logout](https://login.microsoftonline.com/common/oauth2/logout)")
+
 
 if "session" not in st.session_state:
     st.subheader("🔐 Login Required")
@@ -270,3 +298,4 @@ if st.session_state.env_info:
 
 else:
     st.info("ℹ️ Please connect at least one environment to continue.")
+
