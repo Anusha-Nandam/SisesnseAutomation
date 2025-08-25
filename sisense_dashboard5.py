@@ -181,10 +181,32 @@ if st.session_state.env_info:
 
 
     # ------------------------- Comparison -------------------------
+    # if st.button("🔍 Compare Dashboards"):
+    #     dashboards_info = {}
+
+    #     # Step 1: Load all dashboards
+    #     for dash_id, env_key in dash_inputs:
+    #         env = st.session_state.env_info[env_key]
+    #         headers = {"Authorization": f"Bearer {env['token']}"}
+    #         dash = fetch_dashboard(env["url"], dash_id, headers)
+    #         widgets = get_widgets(env["url"], dash_id, headers)
+    #         if dash:
+    #             dash["widgets"] = widgets or []
+    #             info = extract_info(dash)
+    #             dashboards_info[dash_id] = {
+    #                 "title": info["title"],
+    #                 "data": info
+    #             }
+
+    #         else:
+    #             st.error(f"❌ Failed to load dashboard {dash_id}")
+    #             st.stop()
+
+    #     dash_ids = list(dashboards_info.keys())
+    #     title_map = {dash_id: dashboards_info[dash_id]["title"] for dash_id in dash_ids}
+    # ------------------------- Comparison ------------------------- 
     if st.button("🔍 Compare Dashboards"):
         dashboards_info = {}
-
-        # Step 1: Load all dashboards
         for dash_id, env_key in dash_inputs:
             env = st.session_state.env_info[env_key]
             headers = {"Authorization": f"Bearer {env['token']}"}
@@ -193,17 +215,17 @@ if st.session_state.env_info:
             if dash:
                 dash["widgets"] = widgets or []
                 info = extract_info(dash)
-                dashboards_info[dash_id] = {
-                    "title": info["title"],
-                    "data": info
-                }
-
+    
+                # ✅ Make key unique with env name
+                unique_key = f"{env_key}_{dash_id}"
+                dashboards_info[unique_key] = {"title": f"{info['title']} ({env_key})", "data": info}
             else:
-                st.error(f"❌ Failed to load dashboard {dash_id}")
+                st.error(f"❌ Failed to load dashboard {dash_id} from {env_key}")
                 st.stop()
-
+    
         dash_ids = list(dashboards_info.keys())
-        title_map = {dash_id: dashboards_info[dash_id]["title"] for dash_id in dash_ids}
+        title_map = {k: dashboards_info[k]["title"] for k in dash_ids}
+
 
 
         # Helper: Consolidated comparison table
@@ -294,3 +316,4 @@ if st.session_state.env_info:
 
 else:
     st.info("ℹ️ Please connect at least one environment to continue.")
+
